@@ -1,3 +1,7 @@
+"""
+License: MIT
+"""
+
 import sys
 import pyaudio
 import numpy as np
