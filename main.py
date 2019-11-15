@@ -8,28 +8,6 @@ import numpy as np
 import threading
 from scipy import signal
 
-def MarkovChordProg():
-    def __init__():
-        self.S = ["C", "Dm", "Em", "F", "G", "Am", "Bdim"]
-        P = np.array([[0.10, 0.10, 0.10, 0.20, 0.35, 0.10, 0.05],
-                     [0.10, 0.10, 0.20, 0.09, 0.30, 0.20, 0.01],
-                     [0.05, 0.20, 0.10, 0.30, 0.20, 0.14, 0.01],
-                     [0.20, 0.05, 0.19, 0.10, 0.10, 0.35, 0.01],
-                     [0.30, 0.05, 0.10, 0.10, 0.10, 0.30, 0.05],
-                     [0.10, 0.10, 0.05, 0.30, 0.25, 0.10, 0.10],
-                     [0.30, 0.05, 0.05, 0.15, 0.10, 0.30, 0.05],
-                    ])
-        self.P_cum = [np.array([P[m, 0:n+1].sum() for n in range(P.shape[1])]) for m in range(P.shape[0])]
-
-    def step(state_index):
-        #state_index = 0
-        r = np.random.random()
-        state_index = np.where(self.P_cum[state_index] > r)[0][0]
-        return state_index, self.S[state_index]
-        #time.sleep(2)
-
-    
-
 class Oscillator():
     def __init__(self, rate, n_chunk, freq, gain=0.1):
         self.rate = rate
