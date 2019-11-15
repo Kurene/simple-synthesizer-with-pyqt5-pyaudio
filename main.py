@@ -1,7 +1,6 @@
 """
 License: MIT
 """
-
 import sys
 import pyaudio
 import numpy as np
@@ -9,7 +8,7 @@ import threading
 from scipy import signal
 
 class Oscillator():
-    def __init__(self, rate, n_chunk, freq, gain=0.1):
+    def __init__(self, rate, n_chunk, freq, type, gain=0.1):
         self.rate = rate
         self.n_chunk = n_chunk
         self.freq = freq
@@ -20,7 +19,7 @@ class Oscillator():
         self.offset = 0
         self.period = n_chunk * rate
         
-        self.change_waveform("sin")
+        self.change_waveform(type)
 
     def out(self):
         x =  np.arange(self.offset, self.offset + self.n_chunk)
@@ -57,7 +56,7 @@ class Synthesizer():
         self.stream = self.p.open(format=pyaudio.paFloat32, channels=1, rate=rate, output=1,
                                   frames_per_buffer=n_chunk)
         self.oscillators = []
-        
+        self.type = Synthesizer.waveform[0]
         t = threading.Thread(target=self.render)
         t.start()
      
@@ -67,7 +66,7 @@ class Synthesizer():
             if freq == o.freq:
                 osc = o
         if osc is None:
-            osc = Oscillator(self.rate, self.n_chunk, freq)
+            osc = Oscillator(self.rate, self.n_chunk, freq, self.type)
             self.oscillators.append(osc)
         return osc
     
@@ -97,12 +96,12 @@ class Synthesizer():
 
     def change_waveform(self):
         r = np.random.randint(len(Synthesizer.waveform))
-        type = Synthesizer.waveform[r]
+        self.type = Synthesizer.waveform[r]
         for osc in self.oscillators:
-            osc.change_waveform(type)
-        return type
+            osc.change_waveform(self.type)
+        return self.type
         
-from PyQt5.QtWidgets import QApplication, QPushButton, QWidget, QHBoxLayout, QMessageBox
+from PyQt5.QtWidgets import QApplication, QPushButton, QWidget, QHBoxLayout, QVBoxLayout, QGridLayout, QMessageBox
 from PyQt5.QtGui import QKeySequence
 import sys
 from functools import partial
@@ -113,15 +112,27 @@ class MyWidget(QWidget):
                      for idx, pn in enumerate(pitch_class)\
                      for k in range(0, 9)}
     
-    def __init__(self, synthesizer=None, keyset=(39, 52)):
+    def __init__(self, synthesizer=None, keyset=(39, 52, 51, 64)):
         super().__init__()
         self.synthesizer = synthesizer
         self.keyset = keyset
-        self.keymap = { "Q": "C3", "2": "C#3", "W": "D3", "3": "D#3", "E": "E3",
-                        "R": "F3", "5": "F#3", "T": "G3", "6": "G#3", 
-                        "Y": "A4", "7": "A#4", "U": "B4", "I": "C4",}
+        self.keymap = { 
+                        "Q": "C4", "2": "C#4", "W": "D4", "3": "D#4", "E": "E4",
+                        "R": "F4", "5": "F#4", "T": "G4", "6": "G#4", 
+                        "Y": "A5", "7": "A#5", "U": "B5", "I": "C5",
+                        "Z": "C3", "S": "C#3", "X": "D3", "D": "D#3", "C": "E3",
+                        "V": "F3", "G": "F#3", "B": "G3", "H": "G#3", 
+                        "N": "A4", "J": "A#4", "M": "B4", ",": "C4",
+                      }
         self.params_list = []
+        print("# ================================")
+        print("# Initialize")
+        print("# ================================")
         self.init_ui() 
+        print("")
+        print("# ================================")
+        print("# <<Print key input>>")
+        print("# ================================")
         self.show()
         
     def __make_bt(self, id, name):
@@ -136,10 +147,10 @@ class MyWidget(QWidget):
         bt.setContentsMargins(0,0,0,0)
         freq = MyWidget.pitch_freq_di[name]
         params = {"freq": freq, "name": name, "id": id, "self_bt": bt}
-        bt.clicked.connect(partial(self.buttonClicked, params))
-        bt.setMaximumWidth(50)
+        bt.clicked.connect(partial(self.buttonClicked, params["freq"], [bt]))
+        bt.setMaximumWidth(40)
         bt.setMaximumHeight(300)
-        print(f"{name}\t{freq}")
+        print(f"{id}\t{name}\t{freq}")
         self.params_list.append(params)
         return bt
         
@@ -147,24 +158,34 @@ class MyWidget(QWidget):
         self.setStyleSheet("background-color: #eeeeee")
         self.setWindowTitle('Synthesizer')
 
-        keys = QHBoxLayout()
+        keys = QGridLayout()
+        id = 0
+        print(f"ID\tNote\tFreq")
         for n in range(self.keyset[0], self.keyset[1]):
             name = MyWidget.pitch_class[n%12] + str(n//12)
-            id = n - self.keyset[0]
-            keys.addWidget(self.__make_bt(id, name))
+            pos = n - self.keyset[0]
+            keys.addWidget(self.__make_bt(id, name), 1, pos)
+            id += 1
+
+        for n in range(self.keyset[2], self.keyset[3]):
+            name = MyWidget.pitch_class[n%12] + str(n//12)
+            pos = n - self.keyset[2]
+            keys.addWidget(self.__make_bt(id, name), 0, pos)
+            id += 1
+
         self.setLayout(keys)
+        self.setGeometry(300, 300, 660, 160) # x, y, width, height
 
-        self.setGeometry(300, 300, 720, 160) # x, y, width, height
-
-          
-    def buttonClicked(self, params):
+    def buttonClicked(self, freq, bt_list):
         sender = self.sender()
         if self.synthesizer is not None:
-            state = self.synthesizer.request(params["freq"])
+            state = self.synthesizer.request(freq)
             if state:
-                params["self_bt"].key_on()
+                for bt in bt_list:
+                    bt.key_on()
             else:
-                params["self_bt"].key_off()
+                for bt in bt_list:
+                    bt.key_off()
 
     def closeEvent(self, event):
         reply = QMessageBox.question(self, 'Message',  "Are you sure to quit?", QMessageBox.Yes, QMessageBox.No)
@@ -179,13 +200,19 @@ class MyWidget(QWidget):
     def keyPressEvent(self, event):
         # Over
         key = QKeySequence(event.key()).toString()
-        #print(key)
+        bt_list = []
+        freq = 0.0
+        name = None
         if key in self.keymap.keys():
+            
             v = self.keymap[key]
             for p in self.params_list:
                 if p["name"] == v:
-                    self. buttonClicked(p)
-                    pass
+                    name = p["name"]
+                    freq = p["freq"]
+                    bt_list.append(p["self_bt"])
+            self.buttonClicked(freq, bt_list)
+            print(f"{key}: {name}")
         elif key == "@":
             type = self.synthesizer.change_waveform()
             print(type)
